@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>VaultMusic - Premium Player</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+    <div id="app-container">
+        <!-- Header / Search Section -->
+        <header id="main-header">
+            <div class="logo-container">
+                <h1 class="gradient-text">VaultMusic</h1>
+            </div>
+            <div class="search-wrapper">
+                <div class="search-bar">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" placeholder="Buscar música, artistas..." id="search-input">
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content (Home / Search Results) -->
+        <main id="content-area">
+            <section id="home-view" class="view active">
+                <div class="section-title">Recomendado para ti</div>
+                <div class="horizontal-scroll" id="featured-list">
+                    <!-- Cards will be injected here -->
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                </div>
+
+                <div class="section-title">Tendencias</div>
+                <div class="vertical-list" id="trending-list">
+                    <!-- Track items will be injected here -->
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                </div>
+            </section>
+
+            <section id="search-view" class="view">
+                <div class="section-title">Resultados</div>
+                <div id="search-results-list" class="vertical-list"></div>
+            </section>
+        </main>
+
+        <!-- Mini Player (Spotify Style) -->
+        <div id="mini-player" class="glass-effect hidden">
+            <div class="mini-player-info">
+                <img src="https://via.placeholder.com/48" alt="Cover" class="mini-cover" id="mini-cover">
+                <div class="mini-text">
+                    <span id="mini-title" class="truncate">Título de la canción</span>
+                    <span id="mini-artist" class="truncate">Artista</span>
+                </div>
+            </div>
+            <div class="mini-controls">
+                <button id="mini-play-btn" class="icon-btn"><i data-lucide="play"></i></button>
+                <button id="show-full-player" class="icon-btn"><i data-lucide="chevron-up"></i></button>
+            </div>
+            <div class="mini-progress-bar">
+                <div id="mini-progress-fill"></div>
+            </div>
+        </div>
+
+        <!-- Full Player View -->
+        <div id="full-player" class="player-view hidden">
+            <header class="player-header">
+                <button id="close-player" class="icon-btn"><i data-lucide="chevron-down"></i></button>
+                <span class="player-header-title">Reproduciendo</span>
+                <button id="queue-btn" class="icon-btn"><i data-lucide="list-music"></i></button>
+            </header>
+
+            <div class="player-main">
+                <div class="cover-wrapper">
+                    <img src="https://via.placeholder.com/300" alt="Art" id="full-cover" class="main-cover">
+                    <div class="wave-container" id="visualizer">
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                    </div>
+                </div>
+
+                <div class="track-info">
+                    <h2 id="full-title">Nombre de la Canción</h2>
+                    <h3 id="full-artist">Nombre del Artista</h3>
+                </div>
+
+                <div class="progress-container">
+                    <div class="time-info">
+                        <span id="current-time">0:00</span>
+                        <span id="total-time">3:45</span>
+                    </div>
+                    <div class="slider-wrapper">
+                        <input type="range" id="progress-slider" min="0" max="100" value="0">
+                    </div>
+                </div>
+
+                <div class="main-controls">
+                    <button id="prev-btn" class="icon-btn secondary"><i data-lucide="skip-back"></i></button>
+                    <button id="play-pause-btn" class="play-btn-large"><i data-lucide="play"></i></button>
+                    <button id="next-btn" class="icon-btn secondary"><i data-lucide="skip-forward"></i></button>
+                </div>
+
+                <div class="secondary-controls">
+                    <button class="icon-btn small"><i data-lucide="shuffle"></i></button>
+                    <button class="icon-btn small"><i data-lucide="repeat"></i></button>
+                    <button class="icon-btn small"><i data-lucide="heart"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+    <script>
+        // Start Lucide
+        lucide.createIcons();
+    </script>
+</body>
+</html>

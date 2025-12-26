@@ -1,0 +1,8 @@
+bot.py
+server.py
+requirements.txt
+venv/
+.env
+__pycache__/
+*.png
+*.jpg

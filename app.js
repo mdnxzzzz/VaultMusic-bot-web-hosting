@@ -19,49 +19,49 @@ const mockTracks = [
         id: '1',
         title: 'Starboy',
         artist: 'The Weeknd',
-        cover: 'https://i.scdn.co/image/ab67616d0000b2734718e2b124f79258be7bc452',
+        cover: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&h=400&fit=crop',
     },
     {
         id: '2',
         title: 'Blinding Lights',
         artist: 'The Weeknd',
-        cover: 'https://i.scdn.co/image/ab67616d0000b27388657753715c00e9ec49f323',
+        cover: 'https://images.unsplash.com/photo-1619983081563-430f63602796?w=400&h=400&fit=crop',
     },
     {
         id: '3',
         title: 'Levitating',
         artist: 'Dua Lipa',
-        cover: 'https://i.scdn.co/image/ab67616d0000b273bd3dc34263f91295280b27c6',
+        cover: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=400&h=400&fit=crop',
     },
     {
         id: '4',
         title: 'Midnight City',
         artist: 'M83',
-        cover: 'https://i.scdn.co/image/ab67616d0000b27351651582e0571d7966b96e67',
+        cover: 'https://images.unsplash.com/photo-1514525253344-f814d07293c0?w=400&h=400&fit=crop',
     },
     {
         id: '5',
         title: 'Die For You',
         artist: 'The Weeknd',
-        cover: 'https://i.scdn.co/image/ab67616d0000b2734718e2b124f79258be7bc452',
+        cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop',
     },
     {
         id: '6',
         title: 'As It Was',
         artist: 'Harry Styles',
-        cover: 'https://i.scdn.co/image/ab67616d0000b273b46f74097655d7f353caab14',
+        cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&h=400&fit=crop',
     },
     {
         id: '7',
         title: 'Stay',
         artist: 'The Kid LAROI & Justin Bieber',
-        cover: 'https://i.scdn.co/image/ab67616d0000b27341e31f6ea1d448D13D17AD81',
+        cover: 'https://images.unsplash.com/photo-1459749411177-042180ce673c?w=400&h=400&fit=crop',
     },
     {
         id: '8',
         title: 'Save Your Tears',
         artist: 'The Weeknd',
-        cover: 'https://i.scdn.co/image/ab67616d0000b27388657753715c00e9ec49f323',
+        cover: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=400&fit=crop',
     }
 ];
 

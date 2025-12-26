@@ -11,133 +11,162 @@
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Crítica: Asegurar que el loader inicial se vea bien */
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s;
+        }
+    </style>
 </head>
 
 <body>
-    <div id="app-container">
-        <!-- HEADER -->
-        <header id="main-header">
-            <div class="logo-container">
-                <div class="logo-glow"></div>
-                <h1>VaultMusic</h1>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="app-wrapper"> <!-- Centering Wrapper -->
+        <div id="app-container">
+            <!-- HEADER -->
+            <header id="main-header">
+                <div class="logo-container">
+                    <div class="logo-glow"></div>
+                    <h1>VaultMusic</h1>
+                </div>
+                <div class="search-wrapper">
+                    <i data-lucide="search" class="search-icon-inside"></i>
+                    <input type="text" placeholder="¿Qué quieres escuchar?" id="search-input">
+                </div>
+            </header>
+
+            <!-- CONTENT AREA -->
+            <main id="content-area">
+                <!-- HOME VIEW -->
+                <section id="home-view" class="view active">
+                    <!-- FAVORITOS SECTION (NEW) -->
+                    <div id="favorites-section" class="hidden">
+                        <div class="section-title">
+                            <span>Tus Favoritos</span>
+                            <span class="view-all">❤️</span>
+                        </div>
+                        <div class="horizontal-scroll" id="likes-list">
+                            <!-- Likes injected by JS -->
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Recomendado para ti</span>
+                        <span class="view-all">Ver todo</span>
+                    </div>
+                    <div class="horizontal-scroll" id="featured-list">
+                        <!-- Cards will be injected by JS -->
+                    </div>
+
+                    <div class="section-title">Tendencias Mundiales</div>
+                    <div class="vertical-list" id="trending-list">
+                        <!-- Track items will be injected by JS -->
+                    </div>
+                </section>
+
+                <!-- SEARCH VIEW -->
+                <section id="search-view" class="view">
+                    <div id="search-feedback" class="searching-state hidden">
+                        <div class="spinner"></div>
+                        <p id="search-status-text">Buscando...</p>
+                    </div>
+
+                    <div id="no-results" class="searching-state hidden">
+                        <i data-lucide="search-x" style="width: 48px; height: 48px; opacity: 0.5;"></i>
+                        <p>No encontramos nada para tu búsqueda.</p>
+                    </div>
+
+                    <div id="discovery-section">
+                        <div class="section-title">Búsquedas Recientes</div>
+                        <div class="horizontal-scroll" id="recent-searches">
+                            <!-- History injected by JS -->
+                        </div>
+                    </div>
+
+                    <div class="section-title" id="results-title">Resultados</div>
+                    <div id="search-results-list" class="vertical-list">
+                        <!-- Results injected by JS -->
+                    </div>
+                </section>
+            </main>
+
+            <!-- MINI PLAYER -->
+            <div id="mini-player" class="hidden">
+                <div id="mini-progress-fill"
+                    style="width: 0%; position: absolute; bottom: 0; left: 0; height: 3px; background: var(--accent-gradient);">
+                </div>
+                <img src="" alt="Cover" class="mini-cover" id="mini-cover" onerror="this.src=APP_CONFIG.DEFAULT_COVER">
+                <div class="mini-text">
+                    <span id="mini-title" class="truncate">Selecciona un tema</span>
+                    <span id="mini-artist" class="truncate">VaultMusic</span>
+                </div>
+                <div class="mini-controls">
+                    <div id="mini-play-btn" class="mini-btn"><i data-lucide="play"></i></div>
+                    <div id="show-full-player" class="mini-btn"><i data-lucide="chevron-up"></i></div>
+                </div>
             </div>
-            <div class="search-wrapper">
-                <i data-lucide="search" class="search-icon-inside"></i>
-                <input type="text" placeholder="¿Qué quieres escuchar hoy?" id="search-input">
-            </div>
-        </header>
 
-        <!-- CONTENT AREA -->
-        <main id="content-area">
-            <!-- HOME VIEW -->
-            <section id="home-view" class="view active">
-                <div class="section-title">
-                    <span>Recomendado para ti</span>
-                    <span class="view-all">Ver todo</span>
-                </div>
-                <div class="horizontal-scroll" id="featured-list">
-                    <!-- Cards will be injected by JS -->
+            <!-- FULL PLAYER -->
+            <div id="full-player">
+                <header class="player-header">
+                    <div id="close-player"><i data-lucide="chevron-down"></i></div>
+                    <div class="logo-container" style="margin-bottom: 0;">
+                        <div class="logo-glow"></div>
+                        <span style="font-weight: 700; font-size: 0.9rem;">VaultMusic Pro</span>
+                    </div>
+                    <div><i data-lucide="more-vertical"></i></div>
+                </header>
+
+                <div class="artwork-container">
+                    <img src="" alt="" id="full-cover" class="main-cover">
                 </div>
 
-                <div class="section-title">Tendencias Mundiales</div>
-                <div class="vertical-list" id="trending-list">
-                    <!-- Track items will be injected by JS -->
-                </div>
-            </section>
-
-            <!-- SEARCH VIEW -->
-            <section id="search-view" class="view">
-                <!-- Smart Discovery / YouTube Library -->
-                <div id="search-feedback" class="searching-state hidden">
-                    <div class="spinner"></div>
-                    <p id="search-status-text">Buscando en YouTube Library...</p>
+                <div class="track-details">
+                    <h2 id="full-title" class="truncate">Canción</h2>
+                    <p id="full-artist" class="truncate">Artista</p>
                 </div>
 
-                <div id="discovery-section">
-                    <div class="section-title">Búsquedas Recientes</div>
-                    <div class="horizontal-scroll" id="recent-searches">
-                        <!-- History injected by JS -->
+                <div class="wave-container" id="visualizer">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+
+                <div class="slider-container">
+                    <input type="range" id="progress-slider" min="0" max="100" value="0">
+                    <div class="time-labels">
+                        <span id="current-time">0:00</span>
+                        <span id="total-time">0:00</span>
                     </div>
                 </div>
 
-                <div class="section-title" id="results-title">Resultados de búsqueda</div>
-                <div id="search-results-list" class="vertical-list">
-                    <!-- Results injected by JS -->
+                <div class="controls-main">
+                    <div id="like-btn" class="control-btn-secondary"><i data-lucide="heart"></i></div>
+                    <div id="prev-btn" class="control-btn-secondary"><i data-lucide="skip-back"></i></div>
+                    <div id="play-pause-btn" class="play-main"><i data-lucide="play"></i></div>
+                    <div id="next-btn" class="control-btn-secondary"><i data-lucide="skip-forward"></i></div>
+                    <div id="repeat-btn" class="control-btn-secondary"><i data-lucide="repeat"></i></div>
                 </div>
-            </section>
-        </main>
-
-        <!-- MINI PLAYER -->
-        <div id="mini-player" class="hidden">
-            <div id="mini-progress-fill"
-                style="width: 0%; position: absolute; bottom: 0; left: 0; height: 3px; background: var(--accent-gradient);">
-            </div>
-            <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=100&h=100&fit=crop" alt="Cover"
-                class="mini-cover" id="mini-cover">
-            <div class="mini-text">
-                <span id="mini-title" class="truncate">Selecciona un tema</span>
-                <span id="mini-artist" class="truncate">VaultMusic IA</span>
-            </div>
-            <div class="mini-controls">
-                <div id="mini-play-btn" class="mini-btn"><i data-lucide="play"></i></div>
-                <div id="show-full-player" class="mini-btn"><i data-lucide="chevron-up"></i></div>
-            </div>
-        </div>
-
-        <!-- FULL PLAYER -->
-        <div id="full-player">
-            <header class="player-header">
-                <div id="close-player"><i data-lucide="chevron-down"></i></div>
-                <div class="logo-container" style="margin-bottom: 0;">
-                    <div class="logo-glow"></div>
-                    <span style="font-weight: 700; font-size: 0.9rem;">VaultMusic Pro</span>
-                </div>
-                <div><i data-lucide="more-vertical"></i></div>
-            </header>
-
-            <div class="artwork-container">
-                <img src="" alt="" id="full-cover" class="main-cover">
-            </div>
-
-            <div class="track-details">
-                <h2 id="full-title">Canción</h2>
-                <p id="full-artist">Artista</p>
-            </div>
-
-            <div class="wave-container" id="visualizer">
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-            </div>
-
-            <div class="slider-container">
-                <input type="range" id="progress-slider" min="0" max="100" value="0">
-                <div class="time-labels">
-                    <span id="current-time">0:00</span>
-                    <span id="total-time">0:00</span>
-                </div>
-            </div>
-
-            <div class="controls-main">
-                <div id="like-btn" class="control-btn-secondary"><i data-lucide="heart"></i></div>
-                <div id="prev-btn" class="control-btn-secondary"><i data-lucide="skip-back"></i></div>
-                <div id="play-pause-btn" class="play-main"><i data-lucide="play"></i></div>
-                <div id="next-btn" class="control-btn-secondary"><i data-lucide="skip-forward"></i></div>
-                <div class="control-btn-secondary"><i data-lucide="repeat"></i></div>
             </div>
         </div>
     </div>
 
-    <!-- MAIN APP SCRIPT -->
     <script src="app.js"></script>
-    <script>
-        lucide.createIcons();
-    </script>
 </body>
 
 </html>

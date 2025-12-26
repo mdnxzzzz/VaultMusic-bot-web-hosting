@@ -1,14 +1,13 @@
 /**
  * VaultMusic - Ultra-Premium Music Player Logic
- * Version: 3.1 (History & Reliability Fix)
+ * Version: 3.2 (Ultimate Polish & Hybrid Sync)
  */
-
-window.onerror = function () { return true; };
 
 const APP_CONFIG = {
     API_BASE: window.location.origin,
-    SEARCH_DELAY: 400,
-    DEFAULT_COVER: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&h=400&fit=crop'
+    SEARCH_DELAY: 600,
+    DEFAULT_COVER: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&h=400&fit=crop',
+    STORAGE_KEYS: { LIKES: 'vm_likes', HISTORY: 'vm_history' }
 };
 
 const mockTracks = [
@@ -23,8 +22,8 @@ const state = {
     isPlaying: false,
     currentTrack: null,
     user: null,
-    likedTracks: [],
-    searchHistory: [], // String queries
+    likedTracks: JSON.parse(localStorage.getItem(APP_CONFIG.STORAGE_KEYS.LIKES)) || [],
+    searchHistory: JSON.parse(localStorage.getItem(APP_CONFIG.STORAGE_KEYS.HISTORY)) || [],
 };
 
 const elements = {
@@ -33,8 +32,11 @@ const elements = {
     searchView: document.getElementById('search-view'),
     featuredList: document.getElementById('featured-list'),
     trendingList: document.getElementById('trending-list'),
+    likesList: document.getElementById('likes-list'),
+    favoritesSection: document.getElementById('favorites-section'),
     searchResults: document.getElementById('search-results-list'),
     searchFeedback: document.getElementById('search-feedback'),
+    noResults: document.getElementById('no-results'),
     recentSearches: document.getElementById('recent-searches'),
     miniPlayer: document.getElementById('mini-player'),
     fullPlayer: document.getElementById('full-player'),
@@ -50,18 +52,28 @@ const elements = {
     totalTimeLabel: document.getElementById('total-time'),
     playPauseBtn: document.getElementById('play-pause-btn'),
     miniPlayPauseBtn: document.getElementById('mini-play-btn'),
-    visualizer: document.getElementById('visualizer'),
-    likeBtn: document.getElementById('like-btn')
+    likeBtn: document.getElementById('like-btn'),
+    loadingOverlay: document.getElementById('loading-overlay')
 };
+
+// --- CORE ---
 
 async function init() {
     setupTelegram();
-    await syncWithBackend();
     renderHome();
     renderHistory();
+    renderLikedTracks();
     setupListeners();
-    lucide.createIcons();
 
+    // Initial sync
+    syncWithBackend().finally(() => {
+        setTimeout(() => {
+            if (elements.loadingOverlay) elements.loadingOverlay.style.opacity = '0';
+            setTimeout(() => elements.loadingOverlay?.classList.add('hidden'), 500);
+        }, 800);
+    });
+
+    lucide.createIcons();
     audio.addEventListener('loadedmetadata', () => elements.totalTimeLabel.innerText = formatTime(audio.duration));
     audio.addEventListener('timeupdate', updateProgressUI);
     audio.addEventListener('ended', () => { state.isPlaying = false; updatePlayUI(); });
@@ -72,22 +84,14 @@ function setupTelegram() {
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.ready();
-
         const user = tg.initDataUnsafe?.user;
-        if (user) {
-            state.user = {
-                user_id: user.id.toString(),
-                username: user.username || 'Anonymous',
-                first_name: user.first_name || 'User'
-            };
-        } else {
-            state.user = { user_id: 'DEV_USER', username: 'Guest', first_name: 'Medina' };
-        }
+        state.user = user ? { user_id: user.id.toString(), username: user.username, first_name: user.first_name }
+            : { user_id: 'LOCAL_GUEST', username: 'Guest', first_name: 'Medina' };
     }
 }
 
 async function syncWithBackend() {
-    if (!state.user) return;
+    if (!state.user || state.user.user_id === 'LOCAL_GUEST') return;
     try {
         const res = await fetch(`${APP_CONFIG.API_BASE}/api/sync`, {
             method: 'POST',
@@ -96,11 +100,23 @@ async function syncWithBackend() {
         });
         const json = await res.json();
         if (json.status === 'success') {
-            state.searchHistory = json.data.search_history || [];
-            state.likedTracks = json.data.likes || [];
+            // Merge logic: Server wins for fresh state
+            state.searchHistory = [...new Set([...json.data.search_history, ...state.searchHistory])].slice(0, 10);
+            state.likedTracks = [...new Set([...json.data.likes, ...state.likedTracks])];
+            saveLocal();
+            renderHistory();
+            renderLikedTracks();
+            renderHome(); // Refresh heart icons in trending
         }
-    } catch (e) { console.error("Sync Error:", e); }
+    } catch (e) { console.warn("Sync failed, using offline data."); }
 }
+
+function saveLocal() {
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.LIKES, JSON.stringify(state.likedTracks));
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.HISTORY, JSON.stringify(state.searchHistory));
+}
+
+// --- RENDERERS ---
 
 function renderHome() {
     elements.featuredList.innerHTML = '';
@@ -115,10 +131,42 @@ function renderHome() {
     });
 }
 
+function renderLikedTracks() {
+    const likes = state.likedTracks.map(id => mockTracks.find(t => t.id === id)).filter(Boolean);
+    elements.likesList.innerHTML = '';
+    if (likes.length > 0) {
+        elements.favoritesSection.classList.remove('hidden');
+        likes.forEach((t, i) => {
+            const card = createCard(t);
+            card.style.animationDelay = `${i * 0.1}s`;
+            elements.likesList.appendChild(card);
+        });
+    } else {
+        elements.favoritesSection.classList.add('hidden');
+    }
+    lucide.createIcons();
+}
+
+function renderHistory() {
+    elements.recentSearches.innerHTML = '';
+    if (state.searchHistory.length === 0) {
+        elements.recentSearches.innerHTML = '<p class="empty-text">No hay búsquedas recientes.</p>';
+        return;
+    }
+    state.searchHistory.forEach(q => {
+        const tag = document.createElement('div');
+        tag.className = 'track-card-custom';
+        tag.style.cssText = 'min-width:auto; padding:10px 20px; background:rgba(255,255,255,0.08); border-radius:100px; margin-bottom:0;';
+        tag.innerHTML = `<span style="font-size:0.85rem; font-weight:600;">${q}</span>`;
+        tag.onclick = () => { elements.searchInput.value = q; handleSearch(q); };
+        elements.recentSearches.appendChild(tag);
+    });
+}
+
 function createCard(t) {
     const div = document.createElement('div');
     div.className = 'track-card-custom';
-    div.innerHTML = `<div class="card-img-wrapper" style="background-image: url('${t.cover}')"><div class="card-overlay"><i data-lucide="play" style="fill:white"></i></div></div><div class="card-info"><span class="card-title truncate">${t.title}</span><span class="card-artist truncate">${t.artist}</span></div>`;
+    div.innerHTML = `<div class="card-img-wrapper"><img src="${t.cover}" onerror="this.src='${APP_CONFIG.DEFAULT_COVER}'"><div class="card-overlay"><i data-lucide="play" style="fill:white"></i></div></div><div class="card-info"><span class="card-title truncate">${t.title}</span><span class="card-artist truncate">${t.artist}</span></div>`;
     div.onclick = () => selectTrack(t);
     return div;
 }
@@ -128,41 +176,68 @@ function createListItem(t) {
     const div = document.createElement('div');
     div.className = 'track-item-custom';
     div.innerHTML = `
-        <img src="${t.cover}" class="item-img" onerror="this.src='${APP_CONFIG.DEFAULT_COVER}'; this.onerror=null;">
+        <img src="${t.cover}" class="item-img" onerror="this.src='${APP_CONFIG.DEFAULT_COVER}'">
         <div class="item-info">
             <span class="item-title truncate">${t.title}</span>
             <span class="item-artist truncate">${t.artist}</span>
         </div>
         <div class="item-like-status ${isLiked ? 'active' : ''}">
-            <i data-lucide="heart" style="${isLiked ? 'fill: var(--accent-primary); stroke: var(--accent-primary);' : ''}"></i>
+            <i data-lucide="heart" style="${isLiked ? 'fill: var(--accent-primary);' : ''}"></i>
         </div>
     `;
     div.onclick = () => selectTrack(t);
     return div;
 }
 
-function renderHistory() {
-    elements.recentSearches.innerHTML = '';
-    if (state.searchHistory.length === 0) {
-        elements.recentSearches.innerHTML = '<p class="empty-text">No hay búsquedas recientes.</p>';
+// --- LOGIC ---
+
+async function handleSearch(q) {
+    const query = q.trim();
+    if (!query) {
+        elements.homeView.classList.add('active');
+        elements.searchView.classList.remove('active');
         return;
     }
 
-    state.searchHistory.forEach(q => {
-        const tag = document.createElement('div');
-        tag.className = 'track-card-custom';
-        tag.style.cssText = 'min-width:auto; padding:8px 16px; background:rgba(255,255,255,0.08); border-radius:100px; margin-bottom:0;';
-        tag.innerHTML = `<span style="font-size:0.8rem; font-weight:600;">${q}</span>`;
-        tag.onclick = () => { elements.searchInput.value = q; handleSearch(q); };
-        elements.recentSearches.appendChild(tag);
-    });
+    elements.homeView.classList.remove('active');
+    elements.searchView.classList.add('active');
+    elements.searchFeedback.classList.remove('hidden');
+    elements.noResults.classList.add('hidden');
+    elements.searchResults.innerHTML = '';
+
+    // History Update
+    if (!state.searchHistory.includes(query)) {
+        state.searchHistory.unshift(query);
+        state.searchHistory = state.searchHistory.slice(0, 10);
+        saveLocal();
+        renderHistory();
+        if (state.user?.user_id !== 'LOCAL_GUEST') {
+            fetch(`${APP_CONFIG.API_BASE}/api/search/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: state.user.user_id, query: query })
+            });
+        }
+    }
+
+    setTimeout(() => {
+        elements.searchFeedback.classList.add('hidden');
+        const results = mockTracks.filter(t => t.title.toLowerCase().includes(query.toLowerCase()) || t.artist.toLowerCase().includes(query.toLowerCase()));
+
+        if (results.length > 0) {
+            results.forEach(t => elements.searchResults.appendChild(createListItem(t)));
+        } else {
+            elements.noResults.classList.remove('hidden');
+        }
+        lucide.createIcons();
+    }, APP_CONFIG.SEARCH_DELAY);
 }
 
 function selectTrack(t) {
     if (state.currentTrack?.id === t.id && state.isPlaying) return;
     state.currentTrack = t;
     audio.src = t.url;
-    audio.play().catch(() => { });
+    audio.play().catch(e => console.log("User interaction required."));
     state.isPlaying = true;
 
     elements.miniTitle.innerText = t.title;
@@ -176,7 +251,7 @@ function selectTrack(t) {
     updatePlayUI();
     updateLikeUI();
 
-    if (state.user) {
+    if (state.user?.user_id !== 'LOCAL_GUEST') {
         fetch(`${APP_CONFIG.API_BASE}/api/history/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -185,86 +260,43 @@ function selectTrack(t) {
     }
 }
 
-async function handleSearch(q) {
-    if (!q) {
-        elements.homeView.classList.add('active');
-        elements.searchView.classList.remove('active');
-        return;
-    }
+async function toggleLike() {
+    if (!state.currentTrack) return;
+    const tid = state.currentTrack.id;
+    const liked = state.likedTracks.includes(tid);
 
-    elements.homeView.classList.remove('active');
-    elements.searchView.classList.add('active');
-    elements.searchFeedback.classList.remove('hidden');
-    elements.searchResults.innerHTML = '';
+    if (liked) state.likedTracks = state.likedTracks.filter(id => id !== tid);
+    else state.likedTracks.push(tid);
 
-    // Persist search query
-    if (state.user) {
-        fetch(`${APP_CONFIG.API_BASE}/api/search/add`, {
+    saveLocal();
+    updateLikeUI();
+    renderLikedTracks();
+    renderHome();
+
+    if (state.user?.user_id !== 'LOCAL_GUEST') {
+        fetch(`${APP_CONFIG.API_BASE}/api/like/toggle`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: state.user.user_id, query: q })
+            body: JSON.stringify({ user_id: state.user.user_id, track_id: tid })
         });
-        if (!state.searchHistory.includes(q)) {
-            state.searchHistory.unshift(q);
-            state.searchHistory = state.searchHistory.slice(0, 10);
-            renderHistory();
-        }
-    }
-
-    setTimeout(() => {
-        elements.searchFeedback.classList.add('hidden');
-        const results = mockTracks.filter(t => t.title.toLowerCase().includes(q.toLowerCase()) || t.artist.toLowerCase().includes(q.toLowerCase()));
-
-        if (results.length > 0) {
-            results.forEach(t => elements.searchResults.appendChild(createListItem(t)));
-        } else {
-            // IA Simulation
-            mockTracks.forEach(t => elements.searchResults.appendChild(createListItem(t)));
-        }
-        lucide.createIcons();
-    }, APP_CONFIG.SEARCH_DELAY);
-}
-
-function toggleLike() {
-    if (!state.currentTrack || !state.user) return;
-    fetch(`${APP_CONFIG.API_BASE}/api/like/toggle`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: state.user.user_id, track_id: state.currentTrack.id })
-    })
-        .then(r => r.json())
-        .then(json => {
-            if (json.status === 'success') {
-                if (json.liked) state.likedTracks.push(state.currentTrack.id);
-                else state.likedTracks = state.likedTracks.filter(id => id !== state.currentTrack.id);
-                updateLikeUI();
-                renderHome();
-            }
-        });
-}
-
-function updateLikeUI() {
-    if (!state.currentTrack) return;
-    const isLiked = state.likedTracks.includes(state.currentTrack.id);
-    if (elements.likeBtn) {
-        elements.likeBtn.style.color = isLiked ? 'var(--accent-primary)' : 'var(--text-secondary)';
-        elements.likeBtn.innerHTML = `<i data-lucide="heart" style="${isLiked ? 'fill: var(--accent-primary); stroke: var(--accent-primary);' : ''}"></i>`;
-        lucide.createIcons();
     }
 }
 
-function togglePlay() {
-    if (!state.currentTrack) return;
-    state.isPlaying ? audio.pause() : audio.play();
-    state.isPlaying = !state.isPlaying;
-    updatePlayUI();
-}
+// --- UI UPDATES ---
 
 function updatePlayUI() {
     const icon = state.isPlaying ? 'pause' : 'play';
     elements.playPauseBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
     elements.miniPlayPauseBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
     document.body.classList.toggle('playing', state.isPlaying);
+    lucide.createIcons();
+}
+
+function updateLikeUI() {
+    if (!state.currentTrack) return;
+    const isLiked = state.likedTracks.includes(state.currentTrack.id);
+    elements.likeBtn.style.color = isLiked ? 'var(--accent-primary)' : 'var(--text-secondary)';
+    elements.likeBtn.innerHTML = `<i data-lucide="heart" style="${isLiked ? 'fill: var(--accent-primary);' : ''}"></i>`;
     lucide.createIcons();
 }
 
@@ -285,7 +317,7 @@ function formatTime(s) {
 function setupListeners() {
     elements.searchInput.oninput = (e) => {
         clearTimeout(window.sd);
-        window.sd = setTimeout(() => handleSearch(e.target.value), 600);
+        window.sd = setTimeout(() => handleSearch(e.target.value), 400);
     };
 
     elements.miniPlayer.onclick = (e) => {
@@ -300,16 +332,15 @@ function setupListeners() {
         document.body.classList.remove('player-open');
     };
 
-    elements.playPauseBtn.onclick = togglePlay;
-    elements.miniPlayPauseBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
+    elements.playPauseBtn.onclick = () => { if (!state.currentTrack) return; state.isPlaying ? audio.pause() : audio.play(); state.isPlaying = !state.isPlaying; updatePlayUI(); };
+    elements.miniPlayPauseBtn.onclick = (e) => { e.stopPropagation(); if (!state.currentTrack) return; state.isPlaying ? audio.pause() : audio.play(); state.isPlaying = !state.isPlaying; updatePlayUI(); };
     elements.progressSlider.oninput = (e) => { if (audio.duration) audio.currentTime = (e.target.value / 100) * audio.duration; };
-    if (elements.likeBtn) elements.likeBtn.onclick = toggleLike;
+    elements.likeBtn.onclick = toggleLike;
 
-    // Robust image recovery
     document.addEventListener('error', (e) => {
         if (e.target.tagName === 'IMG') {
             e.target.src = APP_CONFIG.DEFAULT_COVER;
-            e.target.onerror = null; // Prevent infinite loops
+            e.target.onerror = null;
         }
     }, true);
 }

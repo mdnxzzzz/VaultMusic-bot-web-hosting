@@ -1,6 +1,6 @@
-bot.py
-server.py
-requirements.txt
+# bot.py
+# server.py
+# requirements.txt
 venv/
 .env
 __pycache__/

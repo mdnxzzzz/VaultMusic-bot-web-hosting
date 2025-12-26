@@ -1,139 +1,115 @@
 /**
- * VaultMusic - Premium Player Logic
- * Handles SPA navigation, audio simulation, and UI state
+ * VaultMusic - Ultra-Premium Music Player Logic
+ * Version: 2.0 (Massive Overhaul)
+ * Features: YT-Simulation, IA Discovery, Persistent History, Glassmorphism++
  */
 
-// --- STATE MANAGEMENT ---
+// --- 1. CONFIGURATION & MOCK EXTENSION ---
+const APP_CONFIG = {
+    YT_SIMULATION_DELAY: 1800,
+    IA_DISCOVERY_DELAY: 1200,
+    STORAGE_KEY_HISTORY: 'vaultmusic_search_history',
+    STORAGE_KEY_FAVORITES: 'vaultmusic_favorites'
+};
+
+const mockTracks = [
+    { id: '1', title: 'Starboy', artist: 'The Weeknd', cover: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&h=400&fit=crop', duration: 230 },
+    { id: '2', title: 'Blinding Lights', artist: 'The Weeknd', cover: 'https://images.unsplash.com/photo-1619983081563-430f63602796?w=400&h=400&fit=crop', duration: 200 },
+    { id: '3', title: 'Levitating', artist: 'Dua Lipa', cover: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=400&h=400&fit=crop', duration: 203 },
+    { id: '4', title: 'Midnight City', artist: 'M83', cover: 'https://images.unsplash.com/photo-1514525253344-f814d07293c0?w=400&h=400&fit=crop', duration: 243 },
+    { id: '5', title: 'Die For You', artist: 'The Weeknd', cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop', duration: 232 },
+    { id: '6', title: 'As It Was', artist: 'Harry Styles', cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&h=400&fit=crop', duration: 167 },
+    { id: '7', title: 'Stay', artist: 'The Kid LAROI & Justin Bieber', cover: 'https://images.unsplash.com/photo-1459749411177-042180ce673c?w=400&h=400&fit=crop', duration: 141 },
+    { id: '8', title: 'Save Your Tears', artist: 'The Weeknd', cover: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=400&fit=crop', duration: 215 },
+    { id: 'yt_1', title: 'Sicko Mode (YT Edit)', artist: 'Travis Scott', cover: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=400&h=400&fit=crop', duration: 312, source: 'youtube' },
+    { id: 'yt_2', title: 'Gods Plan (YT Library)', artist: 'Drake', cover: 'https://images.unsplash.com/photo-1514525253344-f814d07293c0?w=400&h=400&fit=crop', duration: 198, source: 'youtube' }
+];
+
+// --- 2. STATE ---
 const state = {
     isPlaying: false,
     currentTrack: null,
-    progress: 0,
-    duration: 225, // Mock duration in seconds
-    queue: [],
-    history: []
+    currentTime: 0,
+    searchHistory: JSON.parse(localStorage.getItem(APP_CONFIG.STORAGE_KEY_HISTORY)) || ['The Weeknd', 'Travis Scott', 'Phonk'],
+    isSearching: false
 };
 
-// --- MOCK DATA ---
-const mockTracks = [
-    {
-        id: '1',
-        title: 'Starboy',
-        artist: 'The Weeknd',
-        cover: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&h=400&fit=crop',
-    },
-    {
-        id: '2',
-        title: 'Blinding Lights',
-        artist: 'The Weeknd',
-        cover: 'https://images.unsplash.com/photo-1619983081563-430f63602796?w=400&h=400&fit=crop',
-    },
-    {
-        id: '3',
-        title: 'Levitating',
-        artist: 'Dua Lipa',
-        cover: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=400&h=400&fit=crop',
-    },
-    {
-        id: '4',
-        title: 'Midnight City',
-        artist: 'M83',
-        cover: 'https://images.unsplash.com/photo-1514525253344-f814d07293c0?w=400&h=400&fit=crop',
-    },
-    {
-        id: '5',
-        title: 'Die For You',
-        artist: 'The Weeknd',
-        cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop',
-    },
-    {
-        id: '6',
-        title: 'As It Was',
-        artist: 'Harry Styles',
-        cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&h=400&fit=crop',
-    },
-    {
-        id: '7',
-        title: 'Stay',
-        artist: 'The Kid LAROI & Justin Bieber',
-        cover: 'https://images.unsplash.com/photo-1459749411177-042180ce673c?w=400&h=400&fit=crop',
-    },
-    {
-        id: '8',
-        title: 'Save Your Tears',
-        artist: 'The Weeknd',
-        cover: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=400&fit=crop',
-    }
-];
-
-// --- UI ELEMENTS ---
+// --- 3. UI SELECTORS ---
 const elements = {
-    app: document.getElementById('app-container'),
+    searchInput: document.getElementById('search-input'),
     homeView: document.getElementById('home-view'),
     searchView: document.getElementById('search-view'),
-    fullPlayer: document.getElementById('full-player'),
-    miniPlayer: document.getElementById('mini-player'),
-
-    // Controls
-    playPauseBtn: document.getElementById('play-pause-btn'),
-    miniPlayPauseBtn: document.getElementById('mini-play-btn'),
-    progressSlider: document.getElementById('progress-slider'),
-    miniProgressFill: document.getElementById('mini-progress-fill'),
-
-    // Text elements
-    fullTitle: document.getElementById('full-title'),
-    fullArtist: document.getElementById('full-artist'),
-    miniTitle: document.getElementById('mini-title'),
-    miniArtist: document.getElementById('mini-artist'),
-    currentTimeLabel: document.getElementById('current-time'),
-    totalTimeLabel: document.getElementById('total-time'),
-
-    // Lists
     featuredList: document.getElementById('featured-list'),
     trendingList: document.getElementById('trending-list'),
-    searchInput: document.getElementById('search-input'),
-    searchResults: document.getElementById('search-results-list')
+    searchResults: document.getElementById('search-results-list'),
+    searchFeedback: document.getElementById('search-feedback'),
+    searchStatusText: document.getElementById('search-status-text'),
+    recentSearches: document.getElementById('recent-searches'),
+
+    // Player
+    miniPlayer: document.getElementById('mini-player'),
+    fullPlayer: document.getElementById('full-player'),
+    miniTitle: document.getElementById('mini-title'),
+    miniArtist: document.getElementById('mini-artist'),
+    miniCover: document.getElementById('mini-cover'),
+    miniProgress: document.getElementById('mini-progress-fill'),
+
+    fullTitle: document.getElementById('full-title'),
+    fullArtist: document.getElementById('full-artist'),
+    fullCover: document.getElementById('full-cover'),
+    progressSlider: document.getElementById('progress-slider'),
+    currentTimeLabel: document.getElementById('current-time'),
+    totalTimeLabel: document.getElementById('total-time'),
+    playPauseBtn: document.getElementById('play-pause-btn'),
+    miniPlayPauseBtn: document.getElementById('mini-play-btn'),
+    visualizer: document.getElementById('visualizer')
 };
 
-// --- INITIALIZATION ---
+// --- 4. CORE ENGINE ---
+
 function init() {
     renderHome();
-    setupEventListeners();
+    renderHistory();
+    setupListeners();
+    integrateTelegram();
+    lucide.createIcons();
+}
 
-    // Telegram WebApp specific
+function integrateTelegram() {
     if (window.Telegram && window.Telegram.WebApp) {
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.ready();
-        // Set header color to match dark theme
-        tg.setHeaderColor('#050505');
-        tg.setBackgroundColor('#050505');
+        tg.setHeaderColor('#020202');
+        tg.setBackgroundColor('#020202');
     }
 }
 
-// --- RENDER FUNCTIONS ---
+// --- 5. RENDER LOGIC ---
+
 function renderHome() {
-    // Clear skeletons after small timeout to simulate loading
-    setTimeout(() => {
-        elements.featuredList.innerHTML = '';
-        elements.trendingList.innerHTML = '';
+    elements.featuredList.innerHTML = '';
+    elements.trendingList.innerHTML = '';
 
-        mockTracks.forEach(track => {
-            const card = createTrackCard(track);
-            elements.featuredList.appendChild(card);
+    // Simulate smart recommended ordering
+    const recommended = [...mockTracks].sort(() => 0.5 - Math.random());
 
-            const item = createTrackItem(track);
-            elements.trendingList.appendChild(item);
-        });
-    }, 1200);
+    recommended.slice(0, 5).forEach(track => {
+        elements.featuredList.appendChild(createCard(track));
+    });
+
+    mockTracks.forEach(track => {
+        elements.trendingList.appendChild(createListItem(track));
+    });
 }
 
-function createTrackCard(track) {
+function createCard(track) {
     const div = document.createElement('div');
     div.className = 'track-card-custom';
     div.innerHTML = `
         <div class="card-img-wrapper" style="background-image: url('${track.cover}')">
             <div class="card-overlay">
-                <i data-lucide="play" class="play-icon-overlay"></i>
+                <i data-lucide="play" style="fill: white; width: 40px; height: 40px;"></i>
             </div>
         </div>
         <div class="card-info">
@@ -145,14 +121,14 @@ function createTrackCard(track) {
     return div;
 }
 
-function createTrackItem(track) {
+function createListItem(track) {
     const div = document.createElement('div');
     div.className = 'track-item-custom';
     div.innerHTML = `
         <img src="${track.cover}" class="item-img">
         <div class="item-info">
             <span class="item-title truncate">${track.title}</span>
-            <span class="item-artist truncate">${track.artist}</span>
+            <span class="item-artist truncate">${track.artist} ${track.source === 'youtube' ? '• YT' : ''}</span>
         </div>
         <i data-lucide="more-vertical" class="item-more"></i>
     `;
@@ -160,234 +136,181 @@ function createTrackItem(track) {
     return div;
 }
 
-// CSS needed for custom JS elements (adding here for simplicity in this demo)
-const style = document.createElement('style');
-style.innerHTML = `
-    .track-card-custom {
-        min-width: 140px;
-        background: var(--surface-color);
-        padding: 12px;
-        border-radius: 16px;
-        transition: transform 0.2s;
-    }
-    .track-card-custom:active { transform: scale(0.95); }
-    .card-img-wrapper {
-        width: 100%;
-        aspect-ratio: 1/1;
-        background-size: cover;
-        border-radius: 12px;
-        margin-bottom: 8px;
-        position: relative;
-    }
-    .card-overlay {
-        position: absolute;
-        inset: 0;
-        background: rgba(0,0,0,0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-    .track-card-custom:hover .card-overlay { opacity: 1; }
-    .play-icon-overlay { width: 30px; height: 30px; color: white; fill: white; }
-    .card-title { display: block; font-weight: 600; font-size: 0.9rem; }
-    .card-artist { display: block; font-size: 0.8rem; color: var(--text-secondary); }
+function renderHistory() {
+    elements.recentSearches.innerHTML = '';
+    state.searchHistory.forEach(query => {
+        const tag = document.createElement('div');
+        tag.className = 'track-card-custom';
+        tag.style.minWidth = 'auto';
+        tag.style.padding = '8px 16px';
+        tag.style.background = 'rgba(255,255,255,0.05)';
+        tag.style.borderRadius = '50px';
+        tag.innerHTML = `<span style="font-size: 0.85rem; font-weight: 600;">${query}</span>`;
+        tag.onclick = () => {
+            elements.searchInput.value = query;
+            handleSearch(query);
+        };
+        elements.recentSearches.appendChild(tag);
+    });
+}
 
-    .track-item-custom {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        padding: 10px;
-        border-radius: 12px;
-        margin-bottom: 8px;
-    }
-    .track-item-custom:active { background: var(--surface-hover); }
-    .item-img { width: 50px; height: 50px; border-radius: 8px; }
-    .item-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-    .item-title { font-weight: 600; font-size: 0.95rem; }
-    .item-artist { font-size: 0.85rem; color: var(--text-secondary); }
-    .item-more { color: var(--text-secondary); width: 20px; }
-`;
-document.head.appendChild(style);
+// --- 6. PLAYER CONTROLLER ---
 
-// --- PLAYER LOGIC ---
 function selectTrack(track) {
     state.currentTrack = track;
     state.isPlaying = true;
-    state.progress = 0;
+    state.currentTime = 0;
 
-    updateUIForTrack(track);
-    startPlaybackSimulation();
-
-    // Show mini player
-    elements.miniPlayer.classList.remove('hidden');
-    elements.miniPlayer.style.display = 'flex';
-
-    // Trigger icons refresh
-    lucide.createIcons();
-}
-
-function updateUIForTrack(track) {
-    // Full player
-    elements.fullTitle.innerText = track.title;
-    elements.fullArtist.innerText = track.artist;
-    document.getElementById('full-cover').src = track.cover;
-
-    // Mini player
+    // Update UI
     elements.miniTitle.innerText = track.title;
     elements.miniArtist.innerText = track.artist;
-    document.getElementById('mini-cover').src = track.cover;
+    elements.miniCover.src = track.cover;
 
-    // Play buttons
-    updatePlayPauseIcons();
+    elements.fullTitle.innerText = track.title;
+    elements.fullArtist.innerText = track.artist;
+    elements.fullCover.src = track.cover;
+    elements.totalTimeLabel.innerText = formatTime(track.duration);
+
+    elements.miniPlayer.classList.remove('hidden');
+    updatePlayIcons();
+    startSimulation();
 }
 
-function updatePlayPauseIcons() {
-    const iconName = state.isPlaying ? 'pause' : 'play';
-    elements.playPauseBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-    elements.miniPlayPauseBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+function togglePlay() {
+    if (!state.currentTrack) return;
+    state.isPlaying = !state.isPlaying;
+    updatePlayIcons();
+}
 
-    // Visualizer state
-    const visualizer = document.getElementById('visualizer');
+function updatePlayIcons() {
+    const icon = state.isPlaying ? 'pause' : 'play';
+    elements.playPauseBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+    elements.miniPlayPauseBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+
     if (state.isPlaying) {
-        visualizer.classList.remove('paused');
+        elements.visualizer.style.opacity = '1';
+        document.body.classList.add('playing');
     } else {
-        visualizer.classList.add('paused');
+        elements.visualizer.style.opacity = '0.3';
+        document.body.classList.remove('playing');
     }
-
     lucide.createIcons();
 }
 
-let playbackInterval;
-function startPlaybackSimulation() {
-    if (playbackInterval) clearInterval(playbackInterval);
-
-    playbackInterval = setInterval(() => {
-        if (state.isPlaying) {
-            state.progress += 1;
-            if (state.progress >= state.duration) {
-                state.progress = 0; // Loop or next logic
+let ticker;
+function startSimulation() {
+    if (ticker) clearInterval(ticker);
+    ticker = setInterval(() => {
+        if (state.isPlaying && state.currentTrack) {
+            state.currentTime++;
+            if (state.currentTime >= state.currentTrack.duration) {
+                state.currentTime = 0; // Loop simulation
             }
-            updateProgressUI();
+            updateProgress();
         }
     }, 1000);
 }
 
-function updateProgressUI() {
-    const percent = (state.progress / state.duration) * 100;
-    elements.progressSlider.value = percent;
-    elements.miniProgressFill.style.width = percent + '%';
-
-    elements.currentTimeLabel.innerText = formatTime(state.progress);
-    elements.totalTimeLabel.innerText = formatTime(state.duration);
+function updateProgress() {
+    const pct = (state.currentTime / state.currentTrack.duration) * 100;
+    elements.miniProgress.style.width = `${pct}%`;
+    elements.progressSlider.value = pct;
+    elements.currentTimeLabel.innerText = formatTime(state.currentTime);
 }
 
-function formatTime(seconds) {
-    const min = Math.floor(seconds / 60);
-    const sec = Math.floor(seconds % 60);
-    return `${min}:${sec.toString().padStart(2, '0')}`;
+function formatTime(s) {
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    return `${m}:${rs.toString().padStart(2, '0')}`;
 }
 
-// --- EVENT LISTENERS ---
-function setupEventListeners() {
-    elements.playPauseBtn.onclick = togglePlay;
-    elements.miniPlayPauseBtn.onclick = (e) => {
-        e.stopPropagation();
-        togglePlay();
-    };
+// --- 7. SMART SEARCH & YT SIMULATION ---
 
-    // Full player opening
-    document.getElementById('show-full-player').onclick = openFullPlayer;
-    elements.miniPlayer.onclick = openFullPlayer;
-
-    document.getElementById('close-player').onclick = closeFullPlayer;
-
-    // Progress slider
-    elements.progressSlider.oninput = (e) => {
-        state.progress = (e.target.value / 100) * state.duration;
-        updateProgressUI();
-    };
-
-    // Search logic
-    elements.searchInput.oninput = (e) => {
-        const query = e.target.value.toLowerCase();
-        if (query.length > 0) {
-            elements.homeView.classList.remove('active');
-            elements.searchView.classList.add('active');
-
-            // Simular carga de "IA/Internet"
-            elements.searchResults.innerHTML = `
-                <div class="searching-state">
-                    <div class="spinner"></div>
-                    <p>Buscando en VaultMusic IA...</p>
-                </div>
-            `;
-
-            clearTimeout(window.searchTimeout);
-            window.searchTimeout = setTimeout(() => {
-                performSearch(query);
-            }, 600);
-        } else {
-            elements.homeView.classList.add('active');
-            elements.searchView.classList.remove('active');
-        }
-    };
-}
-
-function togglePlay() {
-    state.isPlaying = !state.isPlaying;
-    updatePlayPauseIcons();
-}
-
-function openFullPlayer() {
-    elements.fullPlayer.classList.add('active');
-    elements.fullPlayer.classList.remove('hidden');
-    // Hide mini player when full is open for cleaner look
-    elements.miniPlayer.style.opacity = '0';
-}
-
-function closeFullPlayer() {
-    elements.fullPlayer.classList.remove('active');
-    elements.miniPlayer.style.opacity = '1';
-    setTimeout(() => {
-        elements.fullPlayer.classList.add('hidden');
-    }, 500);
-}
-
-function performSearch(query) {
-    elements.searchResults.innerHTML = '';
-
+function handleSearch(query) {
     if (!query) {
         elements.homeView.classList.add('active');
         elements.searchView.classList.remove('active');
         return;
     }
 
-    // Filtro real
-    const results = mockTracks.filter(t =>
-        t.title.toLowerCase().includes(query) ||
-        t.artist.toLowerCase().includes(query)
-    );
+    elements.homeView.classList.remove('active');
+    elements.searchView.classList.add('active');
+    elements.searchFeedback.classList.remove('hidden');
+    elements.searchResults.innerHTML = '';
+
+    // YT Simulation Stages
+    const stages = ["Conectando con YouTube Library...", "Extrayendo metadatos...", "IA: Filtrando por calidad...", "Listo!"];
+    let step = 0;
+
+    const statusInterval = setInterval(() => {
+        elements.searchStatusText.innerText = stages[Math.min(step, stages.length - 1)];
+        step++;
+    }, 400);
+
+    setTimeout(() => {
+        clearInterval(statusInterval);
+        elements.searchFeedback.classList.add('hidden');
+
+        // Save to history
+        if (!state.searchHistory.includes(query)) {
+            state.searchHistory.unshift(query);
+            state.searchHistory = state.searchHistory.slice(0, 8);
+            localStorage.setItem(APP_CONFIG.STORAGE_KEY_HISTORY, JSON.stringify(state.searchHistory));
+            renderHistory();
+        }
+
+        performMockSearch(query);
+    }, APP_CONFIG.YT_SIMULATION_DELAY);
+}
+
+function performMockSearch(query) {
+    const q = query.toLowerCase();
+    const results = mockTracks.filter(t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q));
 
     if (results.length > 0) {
-        results.forEach(track => {
-            elements.searchResults.appendChild(createTrackItem(track));
-        });
+        results.forEach(t => elements.searchResults.appendChild(createListItem(t)));
     } else {
-        // IA/Discovery fallback: Si no hay nada, mostramos recomendaciones
+        // IA Fallback
         elements.searchResults.innerHTML = `
-            <div style="padding: 20px; text-align: center;">
-                <p style="color: var(--text-secondary); margin-bottom: 15px;">No hay resultados exactos para "${query}"</p>
-                <p style="font-weight: 600; margin-bottom: 15px;">Te recomendamos esto:</p>
+            <div style="text-align: center; padding: 40px 20px;">
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">No hay resultados exactos, pero la IA ha encontrado esto en vivo:</p>
             </div>
         `;
-        mockTracks.slice(0, 4).forEach(track => {
-            elements.searchResults.appendChild(createTrackItem(track));
-        });
+        mockTracks.slice(0, 3).forEach(t => elements.searchResults.appendChild(createListItem(t)));
     }
     lucide.createIcons();
 }
 
-// Start app
+// --- 8. EVENT BINDING ---
+
+function setupListeners() {
+    // Navigation
+    elements.searchInput.addEventListener('input', (e) => {
+        clearTimeout(window.searchDebounce);
+        window.searchDebounce = setTimeout(() => handleSearch(e.target.value), 500);
+    });
+
+    // Player Toggle
+    const toggleFull = () => elements.fullPlayer.classList.toggle('active');
+    elements.miniPlayer.addEventListener('click', (e) => {
+        if (!e.target.closest('.mini-btn')) toggleFull();
+    });
+    document.getElementById('close-player').onclick = toggleFull;
+
+    // Controls
+    elements.playPauseBtn.onclick = togglePlay;
+    elements.miniPlayPauseBtn.onclick = togglePlay;
+
+    elements.progressSlider.oninput = (e) => {
+        if (state.currentTrack) {
+            state.currentTime = (e.target.value / 100) * state.currentTrack.duration;
+            updateProgress();
+        }
+    };
+
+    document.getElementById('next-btn').onclick = () => selectTrack(mockTracks[Math.floor(Math.random() * mockTracks.length)]);
+    document.getElementById('prev-btn').onclick = () => selectTrack(mockTracks[Math.floor(Math.random() * mockTracks.length)]);
+}
+
+// FIRE!
 init();

@@ -1,12 +1,12 @@
 /**
  * VaultMusic - Ultra-Premium Music Player Logic
- * Version: 3.0 (Backend Persistence & Like System)
+ * Version: 3.1 (History & Reliability Fix)
  */
 
 window.onerror = function () { return true; };
 
 const APP_CONFIG = {
-    API_BASE: window.location.origin, // Dynamic API detection
+    API_BASE: window.location.origin,
     SEARCH_DELAY: 400,
     DEFAULT_COVER: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&h=400&fit=crop'
 };
@@ -22,9 +22,9 @@ const audio = new Audio();
 const state = {
     isPlaying: false,
     currentTrack: null,
-    user: null, // Telegram user data
+    user: null,
     likedTracks: [],
-    history: [],
+    searchHistory: [], // String queries
 };
 
 const elements = {
@@ -51,10 +51,8 @@ const elements = {
     playPauseBtn: document.getElementById('play-pause-btn'),
     miniPlayPauseBtn: document.getElementById('mini-play-btn'),
     visualizer: document.getElementById('visualizer'),
-    likeBtn: document.getElementById('like-btn') // Reusing shuffle/repeat slot
+    likeBtn: document.getElementById('like-btn')
 };
-
-// --- INITIALIZATION ---
 
 async function init() {
     setupTelegram();
@@ -83,8 +81,7 @@ function setupTelegram() {
                 first_name: user.first_name || 'User'
             };
         } else {
-            // Dev Fallback
-            state.user = { user_id: 'DEV_USER', username: 'DevGuest', first_name: 'Medina Dev' };
+            state.user = { user_id: 'DEV_USER', username: 'Guest', first_name: 'Medina' };
         }
     }
 }
@@ -99,15 +96,11 @@ async function syncWithBackend() {
         });
         const json = await res.json();
         if (json.status === 'success') {
-            state.history = json.data.history || [];
+            state.searchHistory = json.data.search_history || [];
             state.likedTracks = json.data.likes || [];
         }
-    } catch (e) {
-        console.error("Backend Sync Error:", e);
-    }
+    } catch (e) { console.error("Sync Error:", e); }
 }
-
-// --- RENDER LOGIC ---
 
 function renderHome() {
     elements.featuredList.innerHTML = '';
@@ -135,7 +128,7 @@ function createListItem(t) {
     const div = document.createElement('div');
     div.className = 'track-item-custom';
     div.innerHTML = `
-        <img src="${t.cover}" class="item-img" onerror="this.src='${APP_CONFIG.DEFAULT_COVER}'">
+        <img src="${t.cover}" class="item-img" onerror="this.src='${APP_CONFIG.DEFAULT_COVER}'; this.onerror=null;">
         <div class="item-info">
             <span class="item-title truncate">${t.title}</span>
             <span class="item-artist truncate">${t.artist}</span>
@@ -150,34 +143,28 @@ function createListItem(t) {
 
 function renderHistory() {
     elements.recentSearches.innerHTML = '';
-    // Map history track IDs back to objects for preview
-    const historyObjs = state.history.map(tid => mockTracks.find(t => t.id === tid)).filter(Boolean);
-
-    if (historyObjs.length === 0) {
-        elements.recentSearches.innerHTML = '<p style="color:var(--text-secondary); padding:10px; font-size:0.8rem;">No hay búsquedas recientes.</p>';
+    if (state.searchHistory.length === 0) {
+        elements.recentSearches.innerHTML = '<p class="empty-text">No hay búsquedas recientes.</p>';
         return;
     }
 
-    historyObjs.forEach(t => {
+    state.searchHistory.forEach(q => {
         const tag = document.createElement('div');
         tag.className = 'track-card-custom';
-        tag.style.cssText = 'min-width:auto; padding:6px 14px; background:rgba(255,255,255,0.08); border-radius:50px; margin-bottom:0;';
-        tag.innerHTML = `<span style="font-size:0.8rem; font-weight:600;">${t.title}</span>`;
-        tag.onclick = () => selectTrack(t);
+        tag.style.cssText = 'min-width:auto; padding:8px 16px; background:rgba(255,255,255,0.08); border-radius:100px; margin-bottom:0;';
+        tag.innerHTML = `<span style="font-size:0.8rem; font-weight:600;">${q}</span>`;
+        tag.onclick = () => { elements.searchInput.value = q; handleSearch(q); };
         elements.recentSearches.appendChild(tag);
     });
 }
 
-// --- PLAYER CONTROLLER ---
-
-async function selectTrack(t) {
+function selectTrack(t) {
     if (state.currentTrack?.id === t.id && state.isPlaying) return;
     state.currentTrack = t;
     audio.src = t.url;
-    audio.play();
+    audio.play().catch(() => { });
     state.isPlaying = true;
 
-    // Update UI
     elements.miniTitle.innerText = t.title;
     elements.miniArtist.innerText = t.artist;
     elements.miniCover.src = t.cover;
@@ -189,49 +176,79 @@ async function selectTrack(t) {
     updatePlayUI();
     updateLikeUI();
 
-    // Persist History
     if (state.user) {
         fetch(`${APP_CONFIG.API_BASE}/api/history/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: state.user.user_id, track_id: t.id })
         });
-        if (!state.history.includes(t.id)) {
-            state.history.unshift(t.id);
-            state.history = state.history.slice(0, 8);
-            renderHistory();
-        }
     }
 }
 
-async function toggleLike() {
-    if (!state.currentTrack || !state.user) return;
-    try {
-        const res = await fetch(`${APP_CONFIG.API_BASE}/api/like/toggle`, {
+async function handleSearch(q) {
+    if (!q) {
+        elements.homeView.classList.add('active');
+        elements.searchView.classList.remove('active');
+        return;
+    }
+
+    elements.homeView.classList.remove('active');
+    elements.searchView.classList.add('active');
+    elements.searchFeedback.classList.remove('hidden');
+    elements.searchResults.innerHTML = '';
+
+    // Persist search query
+    if (state.user) {
+        fetch(`${APP_CONFIG.API_BASE}/api/search/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: state.user.user_id, track_id: state.currentTrack.id })
+            body: JSON.stringify({ user_id: state.user.user_id, query: q })
         });
-        const json = await res.json();
-        if (json.status === 'success') {
-            if (json.liked) {
-                state.likedTracks.push(state.currentTrack.id);
-            } else {
-                state.likedTracks = state.likedTracks.filter(id => id !== state.currentTrack.id);
-            }
-            updateLikeUI();
-            renderHome(); // Refresh trending list hearts
+        if (!state.searchHistory.includes(q)) {
+            state.searchHistory.unshift(q);
+            state.searchHistory = state.searchHistory.slice(0, 10);
+            renderHistory();
         }
-    } catch (e) { console.error("Like Toggle Error:", e); }
+    }
+
+    setTimeout(() => {
+        elements.searchFeedback.classList.add('hidden');
+        const results = mockTracks.filter(t => t.title.toLowerCase().includes(q.toLowerCase()) || t.artist.toLowerCase().includes(q.toLowerCase()));
+
+        if (results.length > 0) {
+            results.forEach(t => elements.searchResults.appendChild(createListItem(t)));
+        } else {
+            // IA Simulation
+            mockTracks.forEach(t => elements.searchResults.appendChild(createListItem(t)));
+        }
+        lucide.createIcons();
+    }, APP_CONFIG.SEARCH_DELAY);
+}
+
+function toggleLike() {
+    if (!state.currentTrack || !state.user) return;
+    fetch(`${APP_CONFIG.API_BASE}/api/like/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: state.user.user_id, track_id: state.currentTrack.id })
+    })
+        .then(r => r.json())
+        .then(json => {
+            if (json.status === 'success') {
+                if (json.liked) state.likedTracks.push(state.currentTrack.id);
+                else state.likedTracks = state.likedTracks.filter(id => id !== state.currentTrack.id);
+                updateLikeUI();
+                renderHome();
+            }
+        });
 }
 
 function updateLikeUI() {
     if (!state.currentTrack) return;
     const isLiked = state.likedTracks.includes(state.currentTrack.id);
-    const likeBtn = document.getElementById('like-btn'); // Using a specific button ID
-    if (likeBtn) {
-        likeBtn.style.color = isLiked ? 'var(--accent-primary)' : 'var(--text-secondary)';
-        likeBtn.innerHTML = `<i data-lucide="heart" style="${isLiked ? 'fill: var(--accent-primary); stroke: var(--accent-primary);' : ''}"></i>`;
+    if (elements.likeBtn) {
+        elements.likeBtn.style.color = isLiked ? 'var(--accent-primary)' : 'var(--text-secondary)';
+        elements.likeBtn.innerHTML = `<i data-lucide="heart" style="${isLiked ? 'fill: var(--accent-primary); stroke: var(--accent-primary);' : ''}"></i>`;
         lucide.createIcons();
     }
 }
@@ -265,35 +282,10 @@ function formatTime(s) {
     return `${m}:${rs.toString().padStart(2, '0')}`;
 }
 
-function handleSearch(q) {
-    if (!q) {
-        elements.homeView.classList.add('active');
-        elements.searchView.classList.remove('active');
-        return;
-    }
-
-    elements.homeView.classList.remove('active');
-    elements.searchView.classList.add('active');
-    elements.searchFeedback.classList.remove('hidden');
-    elements.searchResults.innerHTML = '';
-
-    setTimeout(() => {
-        elements.searchFeedback.classList.add('hidden');
-        const results = mockTracks.filter(t => t.title.toLowerCase().includes(q.toLowerCase()) || t.artist.toLowerCase().includes(q.toLowerCase()));
-
-        if (results.length > 0) {
-            results.forEach(t => elements.searchResults.appendChild(createListItem(t)));
-        } else {
-            mockTracks.forEach(t => elements.searchResults.appendChild(createListItem(t)));
-        }
-        lucide.createIcons();
-    }, APP_CONFIG.SEARCH_DELAY);
-}
-
 function setupListeners() {
     elements.searchInput.oninput = (e) => {
         clearTimeout(window.sd);
-        window.sd = setTimeout(() => handleSearch(e.target.value), 400);
+        window.sd = setTimeout(() => handleSearch(e.target.value), 600);
     };
 
     elements.miniPlayer.onclick = (e) => {
@@ -311,10 +303,15 @@ function setupListeners() {
     elements.playPauseBtn.onclick = togglePlay;
     elements.miniPlayPauseBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
     elements.progressSlider.oninput = (e) => { if (audio.duration) audio.currentTime = (e.target.value / 100) * audio.duration; };
+    if (elements.likeBtn) elements.likeBtn.onclick = toggleLike;
 
-    // Like button binding
-    const likeBtn = document.getElementById('like-btn');
-    if (likeBtn) likeBtn.onclick = toggleLike;
+    // Robust image recovery
+    document.addEventListener('error', (e) => {
+        if (e.target.tagName === 'IMG') {
+            e.target.src = APP_CONFIG.DEFAULT_COVER;
+            e.target.onerror = null; // Prevent infinite loops
+        }
+    }, true);
 }
 
 init();

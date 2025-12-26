@@ -26,12 +26,22 @@ def init_db():
             last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    # History table
+    # History table (Played tracks)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT,
             track_id TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(user_id)
+        )
+    ''')
+    # Search queries table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS search_queries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            query TEXT,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(user_id)
         )
@@ -79,9 +89,13 @@ def sync_user():
         VALUES (?, ?, ?, CURRENT_TIMESTAMP)
     ''', (user_id, username, first_name))
 
-    # Fetch history
+    # Fetch history (Played tracks)
     cursor.execute('SELECT track_id FROM history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10', (user_id,))
-    history = [row['track_id'] for row in cursor.fetchall()]
+    played_history = [row['track_id'] for row in cursor.fetchall()]
+
+    # Fetch search queries
+    cursor.execute('SELECT query FROM search_queries WHERE user_id = ? GROUP BY query ORDER BY MAX(timestamp) DESC LIMIT 10', (user_id,))
+    search_history = [row['query'] for row in cursor.fetchall()]
 
     # Fetch likes
     cursor.execute('SELECT track_id FROM likes WHERE user_id = ?', (user_id,))
@@ -93,10 +107,37 @@ def sync_user():
     return jsonify({
         "status": "success",
         "data": {
-            "history": history,
+            "played_history": played_history,
+            "search_history": search_history,
             "likes": likes
         }
     })
+
+@app.route('/api/search/add', methods=['POST'])
+def add_search_query():
+    data = request.json
+    user_id = str(data.get('user_id'))
+    query = data.get('query')
+
+    if not query:
+        return jsonify({"error": "Empty query"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO search_queries (user_id, query) VALUES (?, ?)', (user_id, query))
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success"})
+
+@app.route('/api/search/clear', methods=['POST'])
+def clear_search_history():
+    user_id = str(request.json.get('user_id'))
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM search_queries WHERE user_id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success"})
 
 @app.route('/api/history/add', methods=['POST'])
 def add_history():
@@ -107,16 +148,6 @@ def add_history():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('INSERT INTO history (user_id, track_id) VALUES (?, ?)', (user_id, track_id))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "success"})
-
-@app.route('/api/history/clear', methods=['POST'])
-def clear_history():
-    user_id = str(request.json.get('user_id'))
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM history WHERE user_id = ?', (user_id,))
     conn.commit()
     conn.close()
     return jsonify({"status": "success"})
@@ -146,5 +177,5 @@ def toggle_like():
     return jsonify({"status": "success", "liked": liked})
 
 if __name__ == '__main__':
-    print("Servidor VaultMusic Premium v2.3 (Backend Persistent) iniciado")
+    print("Servidor VaultMusic Premium v3.1 (History & Reliability Fix) iniciado")
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -358,27 +358,31 @@ function closeFullPlayer() {
 function performSearch(query) {
     elements.searchResults.innerHTML = '';
 
-    // Simulación de búsqueda inteligente:
-    // 1. Filtrar los tracks que tenemos
-    let results = mockTracks.filter(t =>
+    if (!query) {
+        elements.homeView.classList.add('active');
+        elements.searchView.classList.remove('active');
+        return;
+    }
+
+    // Filtro real
+    const results = mockTracks.filter(t =>
         t.title.toLowerCase().includes(query) ||
         t.artist.toLowerCase().includes(query)
     );
 
-    // 2. Si hay pocos resultados, añadir "recomendaciones inteligentes" (simulando IA)
-    if (results.length < 4) {
-        const extra = mockTracks.filter(t => !results.includes(t)).slice(0, 4 - results.length);
-        results = [...results, ...extra];
-    }
-
-    if (results.length === 0) {
-        elements.searchResults.innerHTML = '<p style="padding: 20px; color: var(--text-secondary); text-align: center;">No se encontraron resultados exactos, pero aquí tienes algo que te gustará...</p>';
-        // Mostrar todo si no hay nada
-        mockTracks.forEach(track => {
+    if (results.length > 0) {
+        results.forEach(track => {
             elements.searchResults.appendChild(createTrackItem(track));
         });
     } else {
-        results.forEach(track => {
+        // IA/Discovery fallback: Si no hay nada, mostramos recomendaciones
+        elements.searchResults.innerHTML = `
+            <div style="padding: 20px; text-align: center;">
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">No hay resultados exactos para "${query}"</p>
+                <p style="font-weight: 600; margin-bottom: 15px;">Te recomendamos esto:</p>
+            </div>
+        `;
+        mockTracks.slice(0, 4).forEach(track => {
             elements.searchResults.appendChild(createTrackItem(track));
         });
     }

@@ -1,13 +1,13 @@
 /**
  * VaultMusic - Ultra-Premium Music Player Logic
- * Version: 2.3 (Final Fix - High Reliability)
+ * Version: 3.0 (Backend Persistence & Like System)
  */
 
-window.onerror = function () { return true; }; // Global guard
+window.onerror = function () { return true; };
 
 const APP_CONFIG = {
+    API_BASE: window.location.origin, // Dynamic API detection
     SEARCH_DELAY: 400,
-    STORAGE_KEY_HISTORY: 'vaultmusic_search_history',
     DEFAULT_COVER: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&h=400&fit=crop'
 };
 
@@ -22,7 +22,9 @@ const audio = new Audio();
 const state = {
     isPlaying: false,
     currentTrack: null,
-    searchHistory: JSON.parse(localStorage.getItem(APP_CONFIG.STORAGE_KEY_HISTORY)) || ['Starboy', 'Neon'],
+    user: null, // Telegram user data
+    likedTracks: [],
+    history: [],
 };
 
 const elements = {
@@ -48,22 +50,64 @@ const elements = {
     totalTimeLabel: document.getElementById('total-time'),
     playPauseBtn: document.getElementById('play-pause-btn'),
     miniPlayPauseBtn: document.getElementById('mini-play-btn'),
-    visualizer: document.getElementById('visualizer')
+    visualizer: document.getElementById('visualizer'),
+    likeBtn: document.getElementById('like-btn') // Reusing shuffle/repeat slot
 };
 
-function init() {
+// --- INITIALIZATION ---
+
+async function init() {
+    setupTelegram();
+    await syncWithBackend();
     renderHome();
     renderHistory();
     setupListeners();
-    if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.expand();
-        window.Telegram.WebApp.ready();
-    }
     lucide.createIcons();
+
     audio.addEventListener('loadedmetadata', () => elements.totalTimeLabel.innerText = formatTime(audio.duration));
     audio.addEventListener('timeupdate', updateProgressUI);
     audio.addEventListener('ended', () => { state.isPlaying = false; updatePlayUI(); });
 }
+
+function setupTelegram() {
+    if (window.Telegram?.WebApp) {
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        const user = tg.initDataUnsafe?.user;
+        if (user) {
+            state.user = {
+                user_id: user.id.toString(),
+                username: user.username || 'Anonymous',
+                first_name: user.first_name || 'User'
+            };
+        } else {
+            // Dev Fallback
+            state.user = { user_id: 'DEV_USER', username: 'DevGuest', first_name: 'Medina Dev' };
+        }
+    }
+}
+
+async function syncWithBackend() {
+    if (!state.user) return;
+    try {
+        const res = await fetch(`${APP_CONFIG.API_BASE}/api/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(state.user)
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+            state.history = json.data.history || [];
+            state.likedTracks = json.data.likes || [];
+        }
+    } catch (e) {
+        console.error("Backend Sync Error:", e);
+    }
+}
+
+// --- RENDER LOGIC ---
 
 function renderHome() {
     elements.featuredList.innerHTML = '';
@@ -87,34 +131,53 @@ function createCard(t) {
 }
 
 function createListItem(t) {
+    const isLiked = state.likedTracks.includes(t.id);
     const div = document.createElement('div');
     div.className = 'track-item-custom';
-    div.innerHTML = `<img src="${t.cover}" class="item-img" onerror="this.src='${APP_CONFIG.DEFAULT_COVER}'"><div class="item-info"><span class="item-title truncate">${t.title}</span><span class="item-artist truncate">${t.artist}</span></div><i data-lucide="more-vertical"></i>`;
+    div.innerHTML = `
+        <img src="${t.cover}" class="item-img" onerror="this.src='${APP_CONFIG.DEFAULT_COVER}'">
+        <div class="item-info">
+            <span class="item-title truncate">${t.title}</span>
+            <span class="item-artist truncate">${t.artist}</span>
+        </div>
+        <div class="item-like-status ${isLiked ? 'active' : ''}">
+            <i data-lucide="heart" style="${isLiked ? 'fill: var(--accent-primary); stroke: var(--accent-primary);' : ''}"></i>
+        </div>
+    `;
     div.onclick = () => selectTrack(t);
     return div;
 }
 
 function renderHistory() {
     elements.recentSearches.innerHTML = '';
-    state.searchHistory.forEach(q => {
+    // Map history track IDs back to objects for preview
+    const historyObjs = state.history.map(tid => mockTracks.find(t => t.id === tid)).filter(Boolean);
+
+    if (historyObjs.length === 0) {
+        elements.recentSearches.innerHTML = '<p style="color:var(--text-secondary); padding:10px; font-size:0.8rem;">No hay búsquedas recientes.</p>';
+        return;
+    }
+
+    historyObjs.forEach(t => {
         const tag = document.createElement('div');
         tag.className = 'track-card-custom';
         tag.style.cssText = 'min-width:auto; padding:6px 14px; background:rgba(255,255,255,0.08); border-radius:50px; margin-bottom:0;';
-        tag.innerHTML = `<span style="font-size:0.8rem; font-weight:600;">${q}</span>`;
-        tag.onclick = () => { elements.searchInput.value = q; handleSearch(q); };
+        tag.innerHTML = `<span style="font-size:0.8rem; font-weight:600;">${t.title}</span>`;
+        tag.onclick = () => selectTrack(t);
         elements.recentSearches.appendChild(tag);
     });
 }
 
-function selectTrack(t) {
+// --- PLAYER CONTROLLER ---
+
+async function selectTrack(t) {
     if (state.currentTrack?.id === t.id && state.isPlaying) return;
     state.currentTrack = t;
     audio.src = t.url;
-    audio.play().catch(() => {
-        // Fallback for interaction requirement
-    });
+    audio.play();
     state.isPlaying = true;
 
+    // Update UI
     elements.miniTitle.innerText = t.title;
     elements.miniArtist.innerText = t.artist;
     elements.miniCover.src = t.cover;
@@ -124,6 +187,53 @@ function selectTrack(t) {
     elements.miniPlayer.classList.remove('hidden');
 
     updatePlayUI();
+    updateLikeUI();
+
+    // Persist History
+    if (state.user) {
+        fetch(`${APP_CONFIG.API_BASE}/api/history/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.user.user_id, track_id: t.id })
+        });
+        if (!state.history.includes(t.id)) {
+            state.history.unshift(t.id);
+            state.history = state.history.slice(0, 8);
+            renderHistory();
+        }
+    }
+}
+
+async function toggleLike() {
+    if (!state.currentTrack || !state.user) return;
+    try {
+        const res = await fetch(`${APP_CONFIG.API_BASE}/api/like/toggle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.user.user_id, track_id: state.currentTrack.id })
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+            if (json.liked) {
+                state.likedTracks.push(state.currentTrack.id);
+            } else {
+                state.likedTracks = state.likedTracks.filter(id => id !== state.currentTrack.id);
+            }
+            updateLikeUI();
+            renderHome(); // Refresh trending list hearts
+        }
+    } catch (e) { console.error("Like Toggle Error:", e); }
+}
+
+function updateLikeUI() {
+    if (!state.currentTrack) return;
+    const isLiked = state.likedTracks.includes(state.currentTrack.id);
+    const likeBtn = document.getElementById('like-btn'); // Using a specific button ID
+    if (likeBtn) {
+        likeBtn.style.color = isLiked ? 'var(--accent-primary)' : 'var(--text-secondary)';
+        likeBtn.innerHTML = `<i data-lucide="heart" style="${isLiked ? 'fill: var(--accent-primary); stroke: var(--accent-primary);' : ''}"></i>`;
+        lucide.createIcons();
+    }
 }
 
 function togglePlay() {
@@ -176,13 +286,6 @@ function handleSearch(q) {
         } else {
             mockTracks.forEach(t => elements.searchResults.appendChild(createListItem(t)));
         }
-
-        if (!state.searchHistory.includes(q)) {
-            state.searchHistory.unshift(q);
-            state.searchHistory = state.searchHistory.slice(0, 6);
-            localStorage.setItem(APP_CONFIG.STORAGE_KEY_HISTORY, JSON.stringify(state.searchHistory));
-            renderHistory();
-        }
         lucide.createIcons();
     }, APP_CONFIG.SEARCH_DELAY);
 }
@@ -209,12 +312,9 @@ function setupListeners() {
     elements.miniPlayPauseBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
     elements.progressSlider.oninput = (e) => { if (audio.duration) audio.currentTime = (e.target.value / 100) * audio.duration; };
 
-    // Global image guard
-    document.addEventListener('error', (e) => {
-        if (e.target.tagName === 'IMG') {
-            e.target.src = APP_CONFIG.DEFAULT_COVER;
-        }
-    }, true);
+    // Like button binding
+    const likeBtn = document.getElementById('like-btn');
+    if (likeBtn) likeBtn.onclick = toggleLike;
 }
 
 init();

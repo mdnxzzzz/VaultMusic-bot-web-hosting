@@ -5,21 +5,28 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VaultMusic - Multi-User Experience</title>
+    <title>VaultMusic Infinity - The Clone</title>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Modern Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
     <div id="loading-overlay">
-        <div class="spinner"></div>
+        <div class="loader-content">
+            <div class="spinner-infinity"></div>
+            <h1>VaultMusic</h1>
+        </div>
     </div>
 
+    <!-- MAIN APP WRAPPER -->
     <div id="app-wrapper">
         <div id="app-container">
+
             <!-- HEADER -->
             <header id="main-header">
                 <div class="header-top">
@@ -27,184 +34,196 @@
                         <div class="logo-glow"></div>
                         <h1>VaultMusic</h1>
                     </div>
+                    <div id="user-profile" class="user-badge" onclick="switchView('profile-view')">
+                        <span id="user-name">Guest</span>
+                        <div class="user-avatar-wrapper">
+                            <img id="user-avatar" src="" alt="👤" onerror="this.style.opacity=0">
+                        </div>
+                    </div>
                 </div>
-                <div class="search-wrapper">
-                    <i data-lucide="search" class="search-icon-inside"></i>
-                    <input type="text" placeholder="¿Qué quieres escuchar hoy?" id="search-input">
+
+                <div class="search-container">
+                    <div class="search-bar">
+                        <i data-lucide="search" class="search-icon"></i>
+                        <input type="text" placeholder="¿Qué quieres escuchar?" id="search-input">
+                    </div>
+                </div>
+
+                <!-- MOOD FILTERS (YT MUSIC STYLE) -->
+                <div class="mood-chips-container">
+                    <div class="mood-chip" data-mood="Relax">Relax</div>
+                    <div class="mood-chip" data-mood="Fiesta">Fiesta</div>
+                    <div class="mood-chip" data-mood="Ejercicio">Ejercicio</div>
+                    <div class="mood-chip" data-mood="Enfoque">Enfoque</div>
+                    <div class="mood-chip" data-mood="Energía">Energía</div>
                 </div>
             </header>
 
-            <!-- CONTENT AREA -->
+            <!-- MAIN NAVIGATION VIEWS -->
             <main id="content-area">
+
                 <!-- HOME VIEW -->
                 <section id="home-view" class="view active">
-                    <div class="section-title">
-                        <span>Recomendado para ti</span>
-                        <span class="view-all">Vault Discovery</span>
+                    <div id="favorites-rail" class="section-container hidden">
+                        <div class="section-title">
+                            <span>Tus Favoritos</span>
+                        </div>
+                        <div class="horizontal-scroll" id="likes-rail-list"></div>
                     </div>
-                    <div class="horizontal-scroll" id="featured-list"></div>
 
-                    <div class="section-title">Tendencias Mundiales</div>
-                    <div class="vertical-list" id="trending-list"></div>
+                    <div class="section-container">
+                        <div class="section-title">Recomendado para ti</div>
+                        <div class="horizontal-scroll" id="featured-list"></div>
+                    </div>
+
+                    <div class="section-container">
+                        <div class="section-title">Tendencias</div>
+                        <div class="vertical-list" id="trending-list"></div>
+                    </div>
+                </section>
+
+                <!-- EXPLORE VIEW -->
+                <section id="explore-view" class="view">
+                    <div class="section-title">Explorar</div>
+                    <div class="category-grid">
+                        <div class="category-item" style="--bg: #ff4757;"><i data-lucide="trending-up"></i><span>Listas
+                                de éxitos</span></div>
+                        <div class="category-item" style="--bg: #2ed573;"><i
+                                data-lucide="sparkles"></i><span>Novedades</span></div>
+                        <div class="category-item" style="--bg: #1e90ff;"><i data-lucide="smile"></i><span>Estados de
+                                ánimo</span></div>
+                        <div class="category-item" style="--bg: #ffa502;"><i
+                                data-lucide="music"></i><span>Géneros</span></div>
+                    </div>
+                    <div class="section-title">Álbumes nuevos</div>
+                    <div class="horizontal-scroll" id="new-albums-list"></div>
+                </section>
+
+                <!-- LIBRARY VIEW -->
+                <section id="library-view" class="view">
+                    <div class="section-title">Tu biblioteca</div>
+                    <div class="library-filters">
+                        <div class="lib-filter active">Playlists</div>
+                        <div class="lib-filter">Álbumes</div>
+                        <div class="lib-filter">Artistas</div>
+                    </div>
+                    <div class="vertical-list" id="library-list">
+                        <!-- Playlists and liked content -->
+                    </div>
                 </section>
 
                 <!-- SEARCH VIEW -->
                 <section id="search-view" class="view">
                     <div id="search-feedback" class="searching-state hidden">
-                        <div class="spinner"></div>
-                        <p>Buscando en YouTube...</p>
+                        <div class="spinner-infinity min"></div>
+                        <p>Buscando en YouTube Music...</p>
                     </div>
-
-                    <div id="discovery-section">
-                        <div class="section-title">Búsquedas Recientes</div>
-                        <div class="horizontal-scroll" id="recent-searches"></div>
-                    </div>
-
-                    <div class="section-title">Resultados</div>
                     <div id="search-results-list" class="vertical-list"></div>
                 </section>
 
-                <!-- LIKES VIEW (NEW) -->
-                <section id="likes-view" class="view">
-                    <div class="section-title">
-                        <span>Mis Likes</span>
-                        <span class="view-all" id="likes-count">0 canciones</span>
-                    </div>
-                    <div class="vertical-list" id="likes-results-list">
-                        <!-- Likes will be injected here -->
-                    </div>
-                    <div id="empty-likes" class="empty-state">
-                        <i data-lucide="heart" style="width:40px; height:40px; margin-bottom:15px; opacity:0.3;"></i>
-                        <p>Aún no has dado like a ninguna canción.</p>
-                    </div>
-                </section>
-
-                <!-- PROFILE VIEW (NEW) -->
+                <!-- PROFILE VIEW -->
                 <section id="profile-view" class="view">
-                    <div class="profile-card">
-                        <div class="profile-header">
-                            <div class="profile-avatar-large">
-                                <img id="prof-avatar" src="" alt="👤">
-                            </div>
-                            <div class="profile-info-main">
-                                <h2 id="prof-display-name">Cargando...</h2>
-                                <p id="prof-username">@usuario</p>
-                            </div>
-                        </div>
-
-                        <div class="profile-stats">
-                            <div class="stat-item">
-                                <span class="stat-value" id="stat-played">0</span>
-                                <span class="stat-label">Escuchadas</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-value" id="stat-likes">0</span>
-                                <span class="stat-label">Likes</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-value" id="stat-playlists">0</span>
-                                <span class="stat-label">Playlists</span>
-                            </div>
-                        </div>
-
-                        <div class="profile-options">
-                            <div class="option-item">
-                                <label>Apodo en VaultMusic</label>
-                                <div class="nickname-input-group">
-                                    <input type="text" id="nickname-input" placeholder="Tu apodo aquí...">
-                                    <button id="save-nickname-btn">Guardar</button>
-                                </div>
-                            </div>
-                            <div class="option-item" id="clear-history-btn"
-                                style="background: rgba(255,59,48,0.1); border-color: rgba(255,59,48,0.2);">
-                                <span style="color: #ff3b30; font-weight:600;">Limpiar Historial</span>
-                                <i data-lucide="trash-2" style="color: #ff3b30; width:18px;"></i>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Profile content similar to v5.0 but polished -->
                 </section>
             </main>
 
-            <!-- BOTTOM NAVIGATION (NEW) -->
+            <!-- BOTTOM NAVIGATION BAR -->
             <nav id="bottom-nav">
                 <div class="nav-item active" data-view="home-view">
                     <i data-lucide="home"></i>
                     <span>Inicio</span>
                 </div>
-                <div class="nav-item" data-view="search-view">
-                    <i data-lucide="search"></i>
-                    <span>Buscar</span>
+                <div class="nav-item" data-view="explore-view">
+                    <i data-lucide="compass"></i>
+                    <span>Explorar</span>
                 </div>
-                <div class="nav-item" data-view="likes-view">
-                    <i data-lucide="heart"></i>
-                    <span>Likes</span>
-                </div>
-                <div class="nav-item" data-view="profile-view">
-                    <i data-lucide="user"></i>
-                    <span>Perfil</span>
+                <div class="nav-item" data-view="library-view">
+                    <i data-lucide="library"></i>
+                    <span>Biblioteca</span>
                 </div>
             </nav>
 
-            <!-- MINI PLAYER -->
+            <!-- MINI PLAYER (INFINITY STYLE) -->
             <div id="mini-player" class="hidden">
-                <div id="mini-progress-fill"
-                    style="width: 0%; position: absolute; bottom: 0; left: 0; height: 3px; background: var(--accent-gradient);">
+                <div class="mini-progress-bg">
+                    <div id="mini-progress-fill"></div>
                 </div>
-                <img src="" alt="Cover" class="mini-cover" id="mini-cover">
-                <div class="mini-text">
-                    <span id="mini-title" class="truncate">Selecciona un tema</span>
-                    <span id="mini-artist" class="truncate">VaultMusic</span>
-                </div>
-                <div class="mini-controls">
-                    <div id="mini-play-btn" class="mini-btn"><i data-lucide="play"></i></div>
-                    <div id="show-full-player" class="mini-btn"><i data-lucide="chevron-up"></i></div>
+                <div class="mini-content">
+                    <img id="mini-cover" src="" alt="">
+                    <div class="mini-text">
+                        <span id="mini-title" class="truncate">Reproduciendo...</span>
+                        <span id="mini-artist" class="truncate">YouTube Music</span>
+                    </div>
+                    <div class="mini-controls">
+                        <div id="mini-play-btn" class="mini-btn"><i data-lucide="play"></i></div>
+                        <div id="mini-next-btn" class="mini-btn"><i data-lucide="skip-forward"></i></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- FULL PLAYER -->
+            <!-- FULL PLAYER V2.0 (INFINITY) -->
             <div id="full-player">
+                <div id="player-bg-glow"></div>
+
                 <header class="player-header">
-                    <div id="close-player"><i data-lucide="chevron-down"></i></div>
-                    <div class="logo-container">
-                        <span style="font-weight: 800; font-size: 1rem;">VaultMusic Pro</span>
-                    </div>
-                    <div><i data-lucide="more-vertical"></i></div>
+                    <button id="close-player" class="icon-btn"><i data-lucide="chevron-down"></i></button>
+                    <span class="player-source">VaultMusic Infinity</span>
+                    <button class="icon-btn"><i data-lucide="cast"></i></button>
+                    <button class="icon-btn"><i data-lucide="more-vertical"></i></button>
                 </header>
 
-                <div class="artwork-container">
-                    <img src="" alt="" id="full-cover" class="main-cover">
+                <!-- TABS FOR PLAYER -->
+                <div class="player-tabs">
+                    <div class="player-tab active" data-tab="track-info">Canción</div>
+                    <div class="player-tab" data-tab="lyrics">Letras</div>
+                    <div class="player-tab" data-tab="up-next">Siguiente</div>
                 </div>
 
-                <div class="track-details">
-                    <h2 id="full-title" class="truncate">Canción</h2>
-                    <p id="full-artist" class="truncate">Artista</p>
-                </div>
+                <div class="player-tab-content">
+                    <!-- TRACK INFO TAB -->
+                    <div id="track-info" class="tab-pane active">
+                        <div class="artwork-container">
+                            <img id="full-cover" src="" alt="" class="main-cover">
+                        </div>
+                        <div class="track-info-main">
+                            <div class="text-group">
+                                <h2 id="full-title" class="truncate">Título</h2>
+                                <p id="full-artist" class="truncate">Artista</p>
+                            </div>
+                            <button id="like-btn" class="like-button-icon"><i data-lucide="heart"></i></button>
+                        </div>
 
-                <div class="wave-container" id="visualizer">
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                </div>
+                        <div class="slider-container">
+                            <input type="range" id="progress-slider" min="0" max="100" value="0">
+                            <div class="time-labels">
+                                <span id="current-time">0:00</span>
+                                <span id="total-time">0:00</span>
+                            </div>
+                        </div>
 
-                <div class="slider-container">
-                    <input type="range" id="progress-slider" min="0" max="100" value="0">
-                    <div class="time-labels">
-                        <span id="current-time">0:00</span>
-                        <span id="total-time">0:00</span>
+                        <div class="controls-main">
+                            <button class="icon-btn secondary"><i data-lucide="shuffle"></i></button>
+                            <button id="prev-btn" class="icon-btn main-skip"><i data-lucide="skip-back"></i></button>
+                            <button id="play-pause-btn" class="play-circle"><i data-lucide="play"></i></button>
+                            <button id="next-btn" class="icon-btn main-skip"><i data-lucide="skip-forward"></i></button>
+                            <button class="icon-btn secondary"><i data-lucide="repeat"></i></button>
+                        </div>
                     </div>
-                </div>
 
-                <div class="controls-main">
-                    <div id="like-btn" class="control-btn-secondary"><i data-lucide="heart"></i></div>
-                    <div class="control-btn-secondary"><i data-lucide="skip-back"></i></div>
-                    <div id="play-pause-btn" class="play-main"><i data-lucide="play"></i></div>
-                    <div class="control-btn-secondary"><i data-lucide="skip-forward"></i></div>
-                    <div class="control-btn-secondary"><i data-lucide="repeat"></i></div>
+                    <!-- LYRICS TAB -->
+                    <div id="lyrics" class="tab-pane">
+                        <div class="lyrics-container">
+                            <p id="lyrics-text">Buscando letras...</p>
+                        </div>
+                    </div>
+
+                    <!-- UP NEXT TAB -->
+                    <div id="up-next" class="tab-pane">
+                        <div class="queue-container">
+                            <div class="section-subtitle">A continuación</div>
+                            <div id="queue-list" class="vertical-list small"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

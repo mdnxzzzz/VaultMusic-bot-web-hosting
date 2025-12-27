@@ -105,11 +105,14 @@ const Engine = {
     },
 
     mapTrack(raw) {
+        let cover = raw.thumbnail;
+        if (raw.title === 'After Hours') cover = 'https://i.ytimg.com/vi/jzmXAtAbnWg/hqdefault.jpg';
+
         return {
-            id: raw.url.split('v=')[1],
+            id: raw.url ? raw.url.split('v=')[1] : (raw.id || ""),
             title: raw.title,
             artist: raw.uploaderName,
-            cover: raw.thumbnail,
+            cover: cover,
             duration: raw.duration,
             type: 'youtube'
         };
